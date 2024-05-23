@@ -119,9 +119,9 @@ public class MainActivity extends AppCompatActivity {
                                 startActivity(intentveri);*/
 
                                 //google diraction rotate
-                                /*intentDirection.putExtra("lat", latStr);
+                                intentDirection.putExtra("lat", latStr);
                                 intentDirection.putExtra("lng", lngStr);
-                                startActivity(intentDirection);*/
+                                startActivity(intentDirection);
 
                             }
 

@@ -4,27 +4,34 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.Looper;
 import android.speech.tts.TextToSpeech;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.maps.android.PolyUtil;
+import com.google.maps.android.SphericalUtil;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -38,22 +45,38 @@ import java.util.Locale;
 
 public class DirectionsActivity extends AppCompatActivity implements OnMapReadyCallback {
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    private static final double averageStepLength = 0.75; // Ortalama adım uzunluğu (metre cinsinden)
+
+    private static final float PROXIMITY_THRESHOLD = 10.0f; // Talimat noktasına yaklaşma eşiği (metre cinsinden)
     private int RQ_SPEECH_REC = 102;
     private TextToSpeech textToSpeech;
     private GoogleMap mMap;
     private LatLng origin;
     private LatLng destination;
     private FusedLocationProviderClient fusedLocationClient;
+    private LocationCallback locationCallback;
+    private Polyline routePolyline = null;
+    private List<LatLng> path;
+    private int currentStepIndex = 0;
+    private Marker currentLocationMarker;
+
+    private TextView directionTextView;
+    private Button repeatButton;
+    private String currentInstruction = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_directions);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
+
+        directionTextView = findViewById(R.id.direction_text);
+        repeatButton = findViewById(R.id.repeat_button);
+
+        repeatButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                speak(currentInstruction);
+            }
         });
 
         // Gelen verilerden destination konumunu al
@@ -74,7 +97,7 @@ public class DirectionsActivity extends AppCompatActivity implements OnMapReadyC
         // Initialize TextToSpeech
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.setLanguage(Locale.getDefault());
+                textToSpeech.setLanguage(new Locale("tr", "TR"));
             }
         });
     }
@@ -97,16 +120,32 @@ public class DirectionsActivity extends AppCompatActivity implements OnMapReadyC
         try {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                     == PackageManager.PERMISSION_GRANTED) {
-                fusedLocationClient.getLastLocation()
-                        .addOnSuccessListener(this, location -> {
-                            if (location != null) {
-                                origin = new LatLng(location.getLatitude(), location.getLongitude());
+                LocationRequest locationRequest = LocationRequest.create();
+                locationRequest.setInterval(5000);
+                locationRequest.setFastestInterval(2000);
+                locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+                locationCallback = new LocationCallback() {
+                    @Override
+                    public void onLocationResult(LocationResult locationResult) {
+                        if (locationResult == null) {
+                            return;
+                        }
+                        for (Location location : locationResult.getLocations()) {
+                            LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                            if (origin == null) {
+                                origin = currentLocation;
                                 mMap.addMarker(new MarkerOptions().position(origin).title("Current Location"));
                                 mMap.addMarker(new MarkerOptions().position(destination).title("Destination"));
-                                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(origin, 10));
+                                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(origin, 17));
                                 drawRoute(origin, destination);
                             }
-                        });
+                            handleLocationUpdate(currentLocation);
+                        }
+                    }
+                };
+
+                fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
             }
         } catch (SecurityException e) {
             e.printStackTrace();
@@ -127,12 +166,40 @@ public class DirectionsActivity extends AppCompatActivity implements OnMapReadyC
                 }
                 br.close();
                 String response = sb.toString();
-                runOnUiThread(() -> parseDirectionsResponse(response));
+                runOnUiThread(() -> {
+                    parseDirectionsResponse(response);
+                    startLocationUpdates(); // Yeni rota hesaplandıktan sonra konum güncellemelerini yeniden başlat
+                });
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }).start();
     }
+
+    private void startLocationUpdates() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            LocationRequest locationRequest = LocationRequest.create();
+            locationRequest.setInterval(5000);
+            locationRequest.setFastestInterval(2000);
+            locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+            locationCallback = new LocationCallback() {
+                @Override
+                public void onLocationResult(LocationResult locationResult) {
+                    if (locationResult == null) {
+                        return;
+                    }
+                    for (Location location : locationResult.getLocations()) {
+                        LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                        handleLocationUpdate(currentLocation);
+                    }
+                }
+            };
+
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+        }
+    }
+
 
     private String getDirectionsUrl(LatLng origin, LatLng dest) {
         String str_origin = "origin=" + origin.latitude + "," + origin.longitude;
@@ -151,21 +218,90 @@ public class DirectionsActivity extends AppCompatActivity implements OnMapReadyC
                 JSONObject route = routes.getJSONObject(0);
                 JSONObject overviewPolyline = route.getJSONObject("overview_polyline");
                 String encodedString = overviewPolyline.getString("points");
-                List<LatLng> points = PolyUtil.decode(encodedString);
+                path = PolyUtil.decode(encodedString);
                 PolylineOptions polylineOptions = new PolylineOptions()
-                        .addAll(points)
+                        .addAll(path)
                         .width(10)
                         .color(R.color.black)
                         .geodesic(true);
-                mMap.addPolyline(polylineOptions);
+                if (routePolyline != null) {
+                    routePolyline.remove();
+                }
+                routePolyline = mMap.addPolyline(polylineOptions);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    private void handleLocationUpdate(LatLng currentLocation) {
+        if (path != null && currentStepIndex < path.size()) {
+            // Haritadaki mevcut konum marker'ını güncelle
+            if (currentLocationMarker == null) {
+                currentLocationMarker = mMap.addMarker(new MarkerOptions().position(currentLocation).title("Mevcut Konum"));
+            } else {
+                currentLocationMarker.setPosition(currentLocation);
+            }
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocation));
+
+            LatLng targetPoint = path.get(currentStepIndex);
+            float[] results = new float[1];
+            Location.distanceBetween(currentLocation.latitude, currentLocation.longitude,
+                    targetPoint.latitude, targetPoint.longitude, results);
+            float distanceToTarget = results[0];
+
+            if (distanceToTarget < PROXIMITY_THRESHOLD) {
+                if (currentStepIndex < path.size() - 1) {
+                    LatLng nextPoint = path.get(currentStepIndex + 1);
+                    String direction = calculateDirection(targetPoint, nextPoint);
+                    double distance = SphericalUtil.computeDistanceBetween(targetPoint, nextPoint);
+                    int stepsToNext = (int) (distance / averageStepLength);
+                    String detailedDirection = stepsToNext + " adım sonra " + direction + " yönüne gidin.";
+                    currentInstruction = detailedDirection;
+                    directionTextView.setText(detailedDirection);
+                    Toast.makeText(DirectionsActivity.this, detailedDirection, Toast.LENGTH_LONG).show();
+                    speak(detailedDirection);
+                } else {
+                    currentInstruction = "Navigasyon tamamlandı.";
+                    directionTextView.setText(currentInstruction);
+                    Toast.makeText(DirectionsActivity.this, currentInstruction, Toast.LENGTH_LONG).show();
+                    speak(currentInstruction);
+                }
+                currentStepIndex++;
+            }
+
+            if (distanceToTarget > 50) { // Kullanıcı rotadan sapmışsa, yeniden rota hesapla
+                stopLocationUpdates(); // Mevcut konum güncellemelerini durdur
+                drawRoute(currentLocation, destination); // Yeni rotayı hesapla
+                currentInstruction = "Rotadan sapıldı, rota yeniden hesaplandı.";
+                directionTextView.setText(currentInstruction);
+                speak(currentInstruction);
+            }
+        }
+    }
+
+    private void stopLocationUpdates() {
+        if (fusedLocationClient != null && locationCallback != null) {
+            fusedLocationClient.removeLocationUpdates(locationCallback);
+        }
+    }
+
+
+    private String calculateDirection(LatLng currentPoint, LatLng nextPoint) {
+        double bearing = SphericalUtil.computeHeading(currentPoint, nextPoint);
+        if (bearing >= -45 && bearing < 45) {
+            return "doğru";
+        } else if (bearing >= 45 && bearing < 135) {
+            return "sağa";
+        } else if (bearing >= -135 && bearing < -45) {
+            return "sola";
+        } else {
+            return "geri";
+        }
+    }
+
     public void speak(String text) {
-        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "UtteranceId");
+        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
     }
 
     @Override
@@ -174,6 +310,9 @@ public class DirectionsActivity extends AppCompatActivity implements OnMapReadyC
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
+        }
+        if (fusedLocationClient != null && locationCallback != null) {
+            fusedLocationClient.removeLocationUpdates(locationCallback);
         }
     }
 
