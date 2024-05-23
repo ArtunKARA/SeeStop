@@ -38,6 +38,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("com.android.volley:volley:1.2.1")
     implementation("com.google.code.gson:gson:2.8.8")
+    implementation("com.mapbox.maps:android:11.4.0")
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)

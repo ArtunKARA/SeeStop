@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -104,9 +105,21 @@ public class MainActivity extends AppCompatActivity {
                                 Toast.makeText(MainActivity.this, "Latitude: " + lat + ", Longitude: " + lng, Toast.LENGTH_LONG).show();
                                 String latStr = String.valueOf(lat);
                                 String lngStr = String.valueOf(lng);
+
+                                //Google turn by tunr navigation
+                                /*Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + latStr + "," + lngStr+"&mode=w"));
+                                intent.setPackage("com.google.android.apps.maps");
+                                startActivity(intent);*/
+
+                                //mapview
+                                /*
                                 intentveri.putExtra("lat", latStr);
                                 intentveri.putExtra("lng", lngStr);
-                                startActivity(intentveri);
+                                startActivity(intentveri);*/
+
+                                //google diraction rotate
+
+
                             }
 
                             @Override
