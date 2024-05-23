@@ -91,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
                 String veri = result.get(0);
                 Toast.makeText(getApplicationContext(), veri, Toast.LENGTH_SHORT).show();
                 Intent intentveri = new Intent(this, MapActivity.class);
+                Intent  intentDirection = new Intent(this, DirectionsActivity.class);
 
                 placeApiService = new PlaceApiService(this);
 
@@ -118,7 +119,9 @@ public class MainActivity extends AppCompatActivity {
                                 startActivity(intentveri);*/
 
                                 //google diraction rotate
-
+                                /*intentDirection.putExtra("lat", latStr);
+                                intentDirection.putExtra("lng", lngStr);
+                                startActivity(intentDirection);*/
 
                             }
 
