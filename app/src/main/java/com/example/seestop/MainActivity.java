@@ -46,6 +46,8 @@ import org.json.JSONObject;
 
 import java.util.Locale;
 
+import com.example.seestop.StopsData;
+
 public class MainActivity extends AppCompatActivity {
 
     private int RQ_SPEECH_REC= 102;
@@ -96,50 +98,75 @@ public class MainActivity extends AppCompatActivity {
                 placeApiService = new PlaceApiService(this);
 
                 String query = veri; // Aramak istediğiniz mekanın adı
-                placeApiService.getPlaceId(query, new PlaceApiService.PlaceIdCallback() {
-                    @Override
-                    public void onSuccess(String placeId) {
-                        placeApiService.getPlaceDetails(placeId, new PlaceApiService.PlaceDetailsCallback() {
-                            @Override
-                            public void onSuccess(double lat, double lng) {
-                                Log.d(TAG, "Latitude: " + lat + ", Longitude: " + lng);
-                                Toast.makeText(MainActivity.this, "Latitude: " + lat + ", Longitude: " + lng, Toast.LENGTH_LONG).show();
-                                String latStr = String.valueOf(lat);
-                                String lngStr = String.valueOf(lng);
+                if(StopsData.getLatitude(query) != 0.0 && StopsData.getLongitude(query) != 0.0){
 
-                                //Google turn by tunr navigation
+                    String lngStr = String.valueOf(StopsData.getLongitude(query));
+                    String latStr = String.valueOf(StopsData.getLatitude(query));
+
+                    //Google turn by tunr navigation
                                 /*Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + latStr + "," + lngStr+"&mode=w"));
                                 intent.setPackage("com.google.android.apps.maps");
                                 startActivity(intent);*/
 
-                                //mapview
+                    //mapview
                                 /*
                                 intentveri.putExtra("lat", latStr);
                                 intentveri.putExtra("lng", lngStr);
                                 startActivity(intentveri);*/
 
-                                //google diraction rotate
-                                intentDirection.putExtra("lat", latStr);
-                                intentDirection.putExtra("lng", lngStr);
-                                startActivity(intentDirection);
+                    //google diraction rotate
 
-                            }
+                    intentDirection.putExtra("lat", latStr);
+                    intentDirection.putExtra("lng", lngStr);
+                    startActivity(intentDirection);
+                }else {
+                    speak("Aranan yer hazır duraklarda bulunamadı ilgili lokasyon aranıyor.");
+                    placeApiService.getPlaceId(query, new PlaceApiService.PlaceIdCallback() {
+                        @Override
+                        public void onSuccess(String placeId) {
+                            placeApiService.getPlaceDetails(placeId, new PlaceApiService.PlaceDetailsCallback() {
+                                @Override
+                                public void onSuccess(double lat, double lng) {
+                                    Log.d(TAG, "Latitude: " + lat + ", Longitude: " + lng);
+                                    Toast.makeText(MainActivity.this, "Latitude: " + lat + ", Longitude: " + lng, Toast.LENGTH_LONG).show();
+                                    String latStr = String.valueOf(lat);
+                                    String lngStr = String.valueOf(lng);
 
-                            @Override
-                            public void onError(String error) {
-                                Log.e(TAG, "Hata: " + error);
-                                Toast.makeText(MainActivity.this, "Error: " + error, Toast.LENGTH_LONG).show();
-                            }
-                        });
-                    }
+                                    //Google turn by tunr navigation
+                                /*Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + latStr + "," + lngStr+"&mode=w"));
+                                intent.setPackage("com.google.android.apps.maps");
+                                startActivity(intent);*/
 
-                    @Override
-                    public void onError(String error) {
-                        speak("İstenilen yer bulunamadı");
-                        Log.e(TAG, "Error: " + error);
-                        Toast.makeText(MainActivity.this, "Error: " + error, Toast.LENGTH_LONG).show();
-                    }
-                });
+                                    //mapview
+                                /*
+                                intentveri.putExtra("lat", latStr);
+                                intentveri.putExtra("lng", lngStr);
+                                startActivity(intentveri);*/
+
+                                    //google diraction rotate
+
+                                    intentDirection.putExtra("lat", latStr);
+                                    intentDirection.putExtra("lng", lngStr);
+                                    startActivity(intentDirection);
+
+                                }
+
+                                @Override
+                                public void onError(String error) {
+                                    Log.e(TAG, "Hata: " + error);
+                                    Toast.makeText(MainActivity.this, "Error: " + error, Toast.LENGTH_LONG).show();
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void onError(String error) {
+                            speak("İstenilen yer bulunamadı");
+                            Log.e(TAG, "Error: " + error);
+                            Toast.makeText(MainActivity.this, "Error: " + error, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
             }
         }
     }
