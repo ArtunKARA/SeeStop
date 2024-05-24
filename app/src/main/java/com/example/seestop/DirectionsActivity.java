@@ -1,6 +1,7 @@
 package com.example.seestop;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -266,6 +267,8 @@ public class DirectionsActivity extends AppCompatActivity implements OnMapReadyC
                     directionTextView.setText(currentInstruction);
                     Toast.makeText(DirectionsActivity.this, currentInstruction, Toast.LENGTH_LONG).show();
                     speak(currentInstruction);
+                    /*Intent intent =  new Intent(this, MainActivity.class);
+                    startActivity(intent);*/
                 }
                 currentStepIndex++;
             }
