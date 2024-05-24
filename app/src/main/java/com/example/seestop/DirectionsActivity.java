@@ -205,7 +205,7 @@ public class DirectionsActivity extends AppCompatActivity implements OnMapReadyC
         String str_origin = "origin=" + origin.latitude + "," + origin.longitude;
         String str_dest = "destination=" + dest.latitude + "," + dest.longitude;
         String mode = "mode=walking";
-        String key = "key=AIzaSyAej1Jp0p05Sjx8laIdIHUmKDnHWFMeZyE";
+        String key = "key=AIzaSyCHvk7BoPzS4ba8AFivA_fYQa1RwmgDgc0";
         String parameters = str_origin + "&" + str_dest + "&" + mode + "&" + key;
         return "https://maps.googleapis.com/maps/api/directions/json?" + parameters;
     }

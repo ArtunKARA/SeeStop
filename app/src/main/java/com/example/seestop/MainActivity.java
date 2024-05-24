@@ -119,8 +119,8 @@ public class MainActivity extends AppCompatActivity {
                     intentDirection.putExtra("lat", latStr);
                     intentDirection.putExtra("lng", lngStr);
                     startActivity(intentDirection);
-                }else {
-                    speak("Aranan yer hazır duraklarda bulunamadı ilgili lokasyon aranıyor.");
+                }else{
+                    //speak("Aranan yer hazır duraklarda bulunamadı ilgili lokasyon aranıyor.");
                     placeApiService.getPlaceId(query, new PlaceApiService.PlaceIdCallback() {
                         @Override
                         public void onSuccess(String placeId) {
